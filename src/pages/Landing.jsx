@@ -24,7 +24,7 @@ export default function Landing() {
           </p>
           <div className="actions">
             <Link to="/register" className="btn">SEND A PARCEL →</Link>
-            <Link to="/login" className="btn btn-outline">TRACK AN ORDER</Link>
+            <Link to="/orders/track" className="btn btn-outline">TRACK AN ORDER</Link>
           </div>
         </div>
 
