@@ -48,3 +48,12 @@ export default function AdminDashboard() {
   }
 
   if (user?.role !== "admin") return <main className="page container"><div className="error">Admin access required.</div></main>;
+
+  return <main className="page container">
+    <div className="page-heading"><div><div className="eyebrow">ADMIN</div><h1>Parcel operations</h1></div><button className="btn btn-outline" onClick={stopGps}>{t(language, "stopGps")}</button></div>
+    {error && <div className="error">{error}</div>}
+    <div className="orders-panel admin-panel"><div className="table-wrap"><table><thead><tr><th>ID</th><th>STATUS</th><th>PAYMENT</th><th>CURRENT LOCATION</th><th>ACTIONS</th></tr></thead><tbody>
+      {parcels.map((parcel) => <tr key={parcel.id}><td>{parcel.tracking_id}</td><td>{parcel.status}</td><td>{parcel.payment_status}</td><td>{parcel.current_location || "—"}</td><td className="admin-actions"><button className="btn btn-small" onClick={() => startGps(parcel)}>{t(language, "gps")}</button><button className="btn btn-small" onClick={() => updateStatus(parcel.id, "in_transit")} disabled={parcel.payment_status !== "paid"}>IN TRANSIT</button><button className="btn btn-small btn-outline" onClick={() => updateStatus(parcel.id, "delivered")}>DELIVERED</button></td></tr>)}
+    </tbody></table></div></div>
+  </main>;
+}
