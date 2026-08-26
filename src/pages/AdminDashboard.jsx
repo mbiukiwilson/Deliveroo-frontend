@@ -15,3 +15,8 @@ export default function AdminDashboard() {
     try { setParcels((await api.get("/admin/parcels?page=1&per_page=50")).data.data); }
     catch (err) { setError(err.response?.data?.error || "Unable to load admin parcels."); }
   }
+
+  useEffect(() => {
+    load();
+    return () => stopGps();
+  }, []);
