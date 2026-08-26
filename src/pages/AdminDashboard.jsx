@@ -10,3 +10,8 @@ export default function AdminDashboard() {
   const [error, setError] = useState("");
   const watchId = useRef(null);
   const activeParcel = useRef(null);
+
+  async function load() {
+    try { setParcels((await api.get("/admin/parcels?page=1&per_page=50")).data.data); }
+    catch (err) { setError(err.response?.data?.error || "Unable to load admin parcels."); }
+  }
