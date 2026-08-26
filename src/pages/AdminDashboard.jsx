@@ -25,3 +25,8 @@ export default function AdminDashboard() {
     try { await api.patch(`/admin/parcels/${id}/status`, { status }); await load(); }
     catch (err) { setError(err.response?.data?.error || "Unable to update status."); }
   }
+
+  function stopGps() {
+    if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current);
+    watchId.current = null; activeParcel.current = null;
+  }
