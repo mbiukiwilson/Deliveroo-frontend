@@ -30,3 +30,21 @@ export default function AdminDashboard() {
     if (watchId.current !== null) navigator.geolocation?.clearWatch(watchId.current);
     watchId.current = null; activeParcel.current = null;
   }
+
+  function startGps(parcel) {
+    if (!navigator.geolocation) { setError("This browser does not support GPS."); return; }
+    stopGps();
+    activeParcel.current = parcel.id;
+    watchId.current = navigator.geolocation.watchPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      try {
+        await api.patch(`/admin/parcels/${parcel.id}/location`, {
+          location: `GPS ${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+          latitude, longitude,
+        });
+        load();
+      } catch (err) { setError(err.response?.data?.error || "Unable to update GPS location."); }
+    }, (err) => setError(err.message), { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 });
+  }
+
+  if (user?.role !== "admin") return <main className="page container"><div className="error">Admin access required.</div></main>;
