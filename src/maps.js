@@ -24,3 +24,12 @@ export function loadGoogleMaps() {
   });
   return mapsPromise;
 }
+
+export async function geocodeAddress(address) {
+  const maps = await loadGoogleMaps();
+  const geocoder = new maps.Geocoder();
+  const response = await geocoder.geocode({ address });
+  if (!response.results?.length) throw new Error(`Could not find location: ${address}`);
+  const location = response.results[0].geometry.location;
+  return { lat: location.lat(), lng: location.lng(), formatted: response.results[0].formatted_address };
+}
