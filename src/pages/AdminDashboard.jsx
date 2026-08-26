@@ -20,3 +20,8 @@ export default function AdminDashboard() {
     load();
     return () => stopGps();
   }, []);
+
+  async function updateStatus(id, status) {
+    try { await api.patch(`/admin/parcels/${id}/status`, { status }); await load(); }
+    catch (err) { setError(err.response?.data?.error || "Unable to update status."); }
+  }
