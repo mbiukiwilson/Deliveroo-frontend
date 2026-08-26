@@ -33,3 +33,22 @@ export async function geocodeAddress(address) {
   const location = response.results[0].geometry.location;
   return { lat: location.lat(), lng: location.lng(), formatted: response.results[0].formatted_address };
 }
+
+export async function calculateRoute(origin, destination) {
+  const maps = await loadGoogleMaps();
+  const service = new maps.DirectionsService();
+  const result = await service.route({
+    origin,
+    destination,
+    travelMode: maps.TravelMode.DRIVING,
+    drivingOptions: { departureTime: new Date(), trafficModel: "bestguess" },
+  });
+  const route = result.routes?.[0];
+  const leg = route?.legs?.[0];
+  if (!route || !leg) throw new Error("No driving route was found.");
+  return {
+    result,
+    distanceKm: leg.distance?.value ? leg.distance.value / 1000 : null,
+    duration: leg.duration_in_traffic?.text || leg.duration?.text || null,
+  };
+}
