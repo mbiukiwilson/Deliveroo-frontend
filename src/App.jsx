@@ -6,6 +6,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CreateOrder from "./pages/CreateOrder";
 import OrderDetail from "./pages/OrderDetail";
+import TrackOrder from "./pages/TrackOrder";
 
 function Navbar() {
   const { user } = useSelector((state) => state.auth);
@@ -29,6 +30,7 @@ function Navbar() {
           <>
             <Link to="/dashboard">MY ORDERS</Link>
             <Link to="/orders/new">NEW ORDER</Link>
+            <Link to="/orders/track">TRACK ORDER</Link>
             <button
               className="nav-button"
               onClick={() => {
@@ -61,6 +63,7 @@ export default function App() {
         <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
         <Route path="/orders/new" element={<Protected><CreateOrder /></Protected>} />
         <Route path="/orders/:id" element={<Protected><OrderDetail /></Protected>} />
+        <Route path="/orders/track" element={<Protected><TrackOrder /></Protected>} />
       </Routes>
     </>
   );
