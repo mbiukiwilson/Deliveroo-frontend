@@ -54,3 +54,12 @@ export default function MapTracker({ pickup, destination, current, onRoute, live
     draw();
     return () => { cancelled = true; };
   }, [pickup?.lat, pickup?.lng, destination?.lat, destination?.lng, current?.lat, current?.lng]);
+
+  return (
+    <div className="live-map-wrap">
+      <div ref={mapRef} className="live-map" aria-label="Parcel route map" />
+      {error && <div className="map-error">{error}</div>}
+      {live && !error && <div className="live-badge">● LIVE GPS</div>}
+    </div>
+  );
+}
