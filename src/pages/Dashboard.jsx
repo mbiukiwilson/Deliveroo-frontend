@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import { useSelector } from "react-redux";
+import { formatMoney, t } from "../i18n";
 
 export default function Dashboard() {
   const [parcels, setParcels] = useState([]);
   const [filter, setFilter] = useState("all");
   const [error, setError] = useState("");
+  const { language, currency } = useSelector((state) => state.preferences);
 
   useEffect(() => {
     api.get("/parcels?page=1&per_page=20")
@@ -22,19 +25,13 @@ export default function Dashboard() {
 
   return (
     <main className="page container">
-      <div className="page-heading">
-        <div>
-          <div className="eyebrow">DASHBOARD</div>
-          <h1>My orders</h1>
-        </div>
-        <Link to="/orders/new" className="btn">+ NEW ORDER</Link>
-      </div>
+      <div className="page-heading"><div><div className="eyebrow">{t(language, "dashboard")}</div><h1>{t(language, "myOrders")}</h1></div><Link to="/orders/new" className="btn">+ {t(language, "newOrder")}</Link></div>
 
       <div className="stats-grid">
         <Stat value={count("all")} label="TOTAL ORDERS" />
-        <Stat value={count("pending")} label="PENDING" />
-        <Stat value={count("in_transit")} label="IN TRANSIT" />
-        <Stat value={count("delivered")} label="DELIVERED" />
+        <Stat value={count("pending")} label={t(language, "pending")} />
+        <Stat value={count("in_transit")} label={t(language, "inTransit")} />
+        <Stat value={count("delivered")} label={t(language, "delivered")} />
       </div>
 
       <div className="filters">
@@ -54,8 +51,8 @@ export default function Dashboard() {
       <div className="orders-panel">
         {visible.length === 0 ? (
           <div className="empty">
-            <p>No orders match this filter.</p>
-            <Link to="/orders/new" className="btn">CREATE FIRST ORDER</Link>
+            <p>{t(language, "noOrders")}</p>
+            <Link to="/orders/new" className="btn">+ {t(language, "newOrder")}</Link>
           </div>
         ) : (
           <div className="table-wrap">
@@ -75,8 +72,8 @@ export default function Dashboard() {
                     <td><Link to={`/orders/${parcel.id}`}>{parcel.tracking_id}</Link></td>
                     <td>{parcel.pickup_location}</td>
                     <td>{parcel.destination}</td>
-                    <td><Status value={parcel.status} /></td>
-                    <td>KSh {parcel.price?.toFixed(2)}</td>
+                    <td><Status value={parcel.status} language={language} /></td>
+                    <td>{formatMoney(parcel.price, currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -97,6 +94,7 @@ function Stat({ value, label }) {
   );
 }
 
-export function Status({ value }) {
-  return <span className={`status status-${value}`}>{value.replace("_", " ")}</span>;
+export function Status({ value, language = "en" }) {
+  const labels = { pending: t(language, "pending"), in_transit: t(language, "inTransit"), delivered: t(language, "delivered"), cancelled: t(language, "cancelled") };
+  return <span className={`status status-${value}`}>{labels[value] || value.replace("_", " ")}</span>;
 }
