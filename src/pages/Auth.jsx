@@ -1,22 +1,53 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { setCredentials } from "../features/authSlice";
+
+import {
+  Link,
+  useNavigate,
+} from "react-router-dom";
+
+import {
+  useDispatch,
+  useSelector,
+} from "react-redux";
+
+import {
+  setCredentials,
+} from "../features/authSlice";
+
 import api from "../api";
 
-export default function Auth({ mode }) {
-  const isLogin = mode === "login";
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
+import { t } from "../i18n";
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+export default function Auth({
+  mode,
+}) {
+  const isLogin =
+    mode === "login";
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const dispatch =
+    useDispatch();
+
+  const navigate =
+    useNavigate();
+
+  const {
+    language,
+  } = useSelector(
+    (state) => state.preferences
+  );
+
+  const [form, setForm] =
+    useState({
+      name: "",
+      email: "",
+      password: "",
+    });
+
+  const [error, setError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
 
   async function submit(event) {
     event.preventDefault();
@@ -29,37 +60,23 @@ export default function Auth({ mode }) {
         ? "/auth/login"
         : "/auth/register";
 
-      const response = await api.post(endpoint, form);
+      const response =
+        await api.post(
+          endpoint,
+          form
+        );
 
-      const { user, access_token } = response.data;
-
-      // =====================================
-      // SAVE JWT FOR ALL FUTURE API REQUESTS
-      // =====================================
-      if (!access_token) {
-        throw new Error("No access token returned by server.");
-      }
-
-      localStorage.setItem("sendit_token", access_token);
-
-      // Save authentication state in Redux
       dispatch(
-        setCredentials({
-          user,
-          access_token,
-        })
+        setCredentials(
+          response.data
+        )
       );
 
-      // Go to dashboard
       navigate("/dashboard");
-
     } catch (err) {
-      console.error("Authentication error:", err);
-
       setError(
         err.response?.data?.error ||
-        err.message ||
-        "Something went wrong."
+          "Something went wrong."
       );
     } finally {
       setLoading(false);
@@ -68,24 +85,52 @@ export default function Auth({ mode }) {
 
   return (
     <main className="auth-page">
-      <form className="auth-card" onSubmit={submit}>
+      <form
+        className="auth-card"
+        onSubmit={submit}
+      >
         <div className="eyebrow">
-          {isLogin ? "WELCOME BACK" : "GET STARTED"}
+          {isLogin
+            ? t(
+                language,
+                "welcomeBack"
+              )
+            : t(
+                language,
+                "getStarted"
+              )}
         </div>
 
         <h1>
-          {isLogin ? "Sign in" : "Create your account"}
+          {isLogin
+            ? t(
+                language,
+                "signIn"
+              )
+            : t(
+                language,
+                "createAccount"
+              )}
         </h1>
 
         <p>
           {isLogin
-            ? "Track your deliveries and manage orders."
-            : "Start shipping in under a minute."}
+            ? t(
+                language,
+                "signInDescription"
+              )
+            : t(
+                language,
+                "registerDescription"
+              )}
         </p>
 
         {!isLogin && (
           <Field
-            label="FULL NAME"
+            label={t(
+              language,
+              "fullName"
+            )}
             placeholder="Wilson Mbiuki"
             value={form.name}
             onChange={(e) =>
@@ -98,7 +143,10 @@ export default function Auth({ mode }) {
         )}
 
         <Field
-          label="EMAIL"
+          label={t(
+            language,
+            "email"
+          )}
           type="email"
           placeholder="you@example.com"
           value={form.email}
@@ -111,7 +159,10 @@ export default function Auth({ mode }) {
         />
 
         <Field
-          label="PASSWORD"
+          label={t(
+            language,
+            "password"
+          )}
           type="password"
           placeholder="••••••••"
           value={form.password}
@@ -130,24 +181,52 @@ export default function Auth({ mode }) {
         )}
 
         <button
-          type="submit"
           className="btn full"
           disabled={loading}
         >
           {loading
-            ? "PLEASE WAIT..."
+            ? t(
+                language,
+                "pleaseWait"
+              )
             : isLogin
-              ? "SIGN IN"
-              : "CREATE YOUR ACCOUNT"}
+            ? t(
+                language,
+                "signIn"
+              ).toUpperCase()
+            : t(
+                language,
+                "createAccountButton"
+              )}
         </button>
 
         <div className="auth-footer">
           {isLogin
-            ? "Don't have an account?"
-            : "Already have an account?"}{" "}
+            ? t(
+                language,
+                "dontHaveAccount"
+              )
+            : t(
+                language,
+                "alreadyHaveAccount"
+              )}{" "}
 
-          <Link to={isLogin ? "/register" : "/login"}>
-            {isLogin ? "Create one" : "Sign In"}
+          <Link
+            to={
+              isLogin
+                ? "/register"
+                : "/login"
+            }
+          >
+            {isLogin
+              ? t(
+                  language,
+                  "createOne"
+                )
+              : t(
+                  language,
+                  "signIn"
+                )}
           </Link>
         </div>
       </form>

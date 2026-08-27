@@ -1,69 +1,162 @@
 import { Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  setLanguage,
+  setCurrency,
+} from "../features/preferencesSlice";
+import { formatMoney, t } from "../i18n";
 
 const prices = [
-  ["UP TO 2 KG", "KSh 218.0", "Documents, letters, small items"],
-  ["2 – 5 KG", "KSh 392.4", "Books, small electronics, gifts"],
-  ["5 – 10 KG", "KSh 741.2", "Clothing bundles, medium parcels"],
-  ["10 KG+", "KSh 69.8/kg", "Heavy cargo, industrial parts"],
+  ["UP TO 2 KG", 218, "documents"],
+  ["2 – 5 KG", 392.4, "books"],
+  ["5 – 10 KG", 741.2, "clothing"],
+  ["10 KG+", 69.8, "heavyCargo"],
 ];
 
 export default function Landing() {
+  const dispatch = useDispatch();
+
+  const { language, currency } = useSelector(
+    (state) => state.preferences
+  );
+
   return (
     <main>
       <section className="hero container">
         <div className="hero-copy">
-          <div className="eyebrow">● COURIER & LOGISTICS PLATFORM — WORLDWIDE</div>
+
+          <div className="preferences">
+            <select
+              value={language}
+              onChange={(e) =>
+                dispatch(setLanguage(e.target.value))
+              }
+              aria-label="Language"
+            >
+              <option value="en">English</option>
+              <option value="sw">Kiswahili</option>
+            </select>
+
+            <select
+              value={currency}
+              onChange={(e) =>
+                dispatch(setCurrency(e.target.value))
+              }
+              aria-label="Currency"
+            >
+              <option value="KES">KES</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+
+          <div className="eyebrow">
+            ● {t(language, "worldwide")}
+          </div>
+
           <h1>
-            Deliver anything,<br />
-            <span>anywhere in the world.</span>
+            {t(language, "heroTitle")}
+            <br />
+            <span>{t(language, "heroTitle2")}</span>
           </h1>
+
           <p>
-            SendIT gives you real-time tracking, weight-based pricing, and
-            live route maps for every parcel — from a single document to
-            heavy cargo.
+            {t(language, "heroDescription")}
           </p>
+
           <div className="actions">
-            <Link to="/register" className="btn">SEND A PARCEL →</Link>
-            <Link to="/login" className="btn btn-outline">TRACK AN ORDER</Link>
+            <Link
+              to="/register"
+              className="btn"
+            >
+              {t(language, "sendParcel")}
+            </Link>
+
+            <Link
+              to="/login"
+              className="btn btn-outline"
+            >
+              {t(language, "trackOrder")}
+            </Link>
           </div>
         </div>
 
         <div className="hero-stats">
-          <Stat value="42,890" label="PARCELS DELIVERED" />
-          <Stat value="68" label="CITIES COVERED" />
-          <Stat value="98.4%" label="ON-TIME RATE" />
+          <Stat
+            value="42,890"
+            label={t(language, "parcelsDelivered")}
+          />
+
+          <Stat
+            value="68"
+            label={t(language, "citiesCovered")}
+          />
+
+          <Stat
+            value="98.4%"
+            label={t(language, "onTimeRate")}
+          />
         </div>
       </section>
 
       <section className="section container">
-        <h2>Ship in three steps</h2>
+        <h2>
+          {t(language, "shipThreeSteps")}
+        </h2>
+
         <div className="three-grid">
-          <Step number="01" title="Create Order">
-            Enter pickup and delivery addresses, describe your parcel and
-            select a weight category for instant pricing.
+          <Step
+            number="01"
+            title={t(language, "createOrder")}
+          >
+            {t(language, "createOrderDescription")}
           </Step>
-          <Step number="02" title="We Pick Up">
-            Our rider arrives at your pickup location within the hour.
-            We handle fragile items with care.
+
+          <Step
+            number="02"
+            title={t(language, "wePickUp")}
+          >
+            {t(language, "wePickUpDescription")}
           </Step>
-          <Step number="03" title="Live Tracking">
-            Follow your parcel on a live map from the moment it leaves your
-            door to final delivery confirmation.
+
+          <Step
+            number="03"
+            title={t(language, "liveTracking")}
+          >
+            {t(language, "liveTrackingDescription")}
           </Step>
         </div>
       </section>
 
       <section className="section pricing container">
-        <div className="eyebrow">PRICING</div>
-        <h2>Weight-based quotes</h2>
+        <div className="eyebrow">
+          {t(language, "pricing")}
+        </div>
+
+        <h2>
+          {t(language, "weightQuotes")}
+        </h2>
+
         <div className="pricing-grid">
-          {prices.map(([weight, price, description]) => (
-            <div className="price-card" key={weight}>
-              <small>{weight}</small>
-              <strong>{price}</strong>
-              <p>{description}</p>
-            </div>
-          ))}
+          {prices.map(
+            ([weight, price, descriptionKey]) => (
+              <div
+                className="price-card"
+                key={weight}
+              >
+                <small>{weight}</small>
+
+                <strong>
+                  {formatMoney(price, currency)}
+                </strong>
+
+                <p>
+                  {t(language, descriptionKey)}
+                </p>
+              </div>
+            )
+          )}
         </div>
       </section>
     </main>

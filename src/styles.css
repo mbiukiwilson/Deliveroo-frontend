@@ -256,3 +256,70 @@ td a { color: var(--orange); font-family: monospace; }
   .detail-actions { flex-direction: column; }
   .order-card, .auth-card { padding: 22px; }
 }
+
+.preferences {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.preferences select {
+  background: #081525;
+  color: #ffffff;
+  border: 1px solid #243852;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.preferences select:focus {
+  border-color: #ff5a1f;
+}
+
+.preferences select option {
+  background: #081525;
+  color: #ffffff;
+}
+
+.live-map-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.live-map {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  background: #081525;
+}
+
+.map-error {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  padding: 14px;
+  background: #351712;
+  border: 1px solid #7b2d1e;
+  color: #ff9275;
+  font-size: 13px;
+  z-index: 5;
+}
+
+.live-badge {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: #07121f;
+  border: 1px solid #ff5a1f;
+  color: #ff5a1f;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 5;
+}
