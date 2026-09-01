@@ -39,3 +39,63 @@ lng: Number(result.lon),
 formatted: result.display_name,
 };
 }
+
+//Calculate a driving route using OSRM.
+//
+//origin and destination must be:
+//{ lat: number, lng: number }
+
+export async function calculateRoute(origin, destination) {
+if (!origin || !destination) {
+throw new Error("Origin and destination are required.");
+}
+
+const coordinates = [
+`${origin.lng},${origin.lat}`,
+`${destination.lng},${destination.lat}`,
+].join(";");
+
+const url =
+`${OSRM_URL}/route/v1/driving/${coordinates}` +
+"?overview=full&geometries=geojson&steps=true";
+
+const response = await fetch(url);
+
+if (!response.ok) {
+throw new Error("Unable to calculate the driving route.");
+}
+
+const data = await response.json();
+
+if (data.code !== "Ok" || !data.routes?.length) {
+throw new Error("No driving route was found.");
+}
+
+const route = data.routes[0];
+
+return {
+result: data,
+geometry: route.geometry,
+distanceKm: route.distance ? route.distance / 1000 : null,
+duration: route.duration
+? formatDuration(route.duration)
+: null,
+durationSeconds: route.duration ?? null,
+};
+}
+
+//Convert seconds into a readable duration.
+function formatDuration(seconds) {
+const totalMinutes = Math.round(seconds / 60);
+
+if (totalMinutes < 60) {
+return `${totalMinutes} min`;
+}
+
+const hours = Math.floor(totalMinutes / 60);
+const minutes = totalMinutes % 60;
+
+return minutes
+? `${hours} hr ${minutes} min`
+: `${hours} hr`;
+}
