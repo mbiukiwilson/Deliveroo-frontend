@@ -1,54 +1,108 @@
-let mapsPromise;
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org";
+const OSRM_URL = "https://router.project-osrm.org";
 
-export function loadGoogleMaps() {
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  if (!key) return Promise.reject(new Error("VITE_GOOGLE_MAPS_API_KEY is not configured."));
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
-  if (mapsPromise) return mapsPromise;
+/**
 
-  mapsPromise = new Promise((resolve, reject) => {
-    const existing = document.getElementById("sendit-google-maps");
-    if (existing) {
-      existing.addEventListener("load", () => resolve(window.google.maps), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Google Maps failed to load.")), { once: true });
-      return;
-    }
-    const script = document.createElement("script");
-    script.id = "sendit-google-maps";
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=geometry`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve(window.google.maps);
-    script.onerror = () => reject(new Error("Google Maps failed to load."));
-    document.head.appendChild(script);
-  });
-  return mapsPromise;
+* Convert an address into latitude/longitude using Nominatim.
+  */
+  export async function geocodeAddress(address) {
+  if (!address?.trim()) {
+  throw new Error("Address is required.");
+  }
+
+const url = new URL(`${NOMINATIM_URL}/search`);
+
+url.searchParams.set("q", address.trim());
+url.searchParams.set("format", "jsonv2");
+url.searchParams.set("limit", "1");
+url.searchParams.set("addressdetails", "1");
+
+const response = await fetch(url.toString(), {
+headers: {
+Accept: "application/json",
+},
+});
+
+if (!response.ok) {
+throw new Error("Unable to find this address.");
 }
 
-export async function geocodeAddress(address) {
-  const maps = await loadGoogleMaps();
-  const geocoder = new maps.Geocoder();
-  const response = await geocoder.geocode({ address });
-  if (!response.results?.length) throw new Error(`Could not find location: ${address}`);
-  const location = response.results[0].geometry.location;
-  return { lat: location.lat(), lng: location.lng(), formatted: response.results[0].formatted_address };
+const results = await response.json();
+
+if (!results.length) {
+throw new Error(`Could not find location: ${address}`);
 }
 
-export async function calculateRoute(origin, destination) {
-  const maps = await loadGoogleMaps();
-  const service = new maps.DirectionsService();
-  const result = await service.route({
-    origin,
-    destination,
-    travelMode: maps.TravelMode.DRIVING,
-    drivingOptions: { departureTime: new Date(), trafficModel: "bestguess" },
-  });
-  const route = result.routes?.[0];
-  const leg = route?.legs?.[0];
-  if (!route || !leg) throw new Error("No driving route was found.");
-  return {
-    result,
-    distanceKm: leg.distance?.value ? leg.distance.value / 1000 : null,
-    duration: leg.duration_in_traffic?.text || leg.duration?.text || null,
-  };
+const result = results[0];
+
+return {
+lat: Number(result.lat),
+lng: Number(result.lon),
+formatted: result.display_name,
+};
+}
+
+/**
+
+* Calculate a driving route using OSRM.
+*
+* origin and destination must be:
+* { lat: number, lng: number }
+  */
+  export async function calculateRoute(origin, destination) {
+  if (!origin || !destination) {
+  throw new Error("Origin and destination are required.");
+  }
+
+const coordinates = [
+`${origin.lng},${origin.lat}`,
+`${destination.lng},${destination.lat}`,
+].join(";");
+
+const url =
+`${OSRM_URL}/route/v1/driving/${coordinates}` +
+"?overview=full&geometries=geojson&steps=true";
+
+const response = await fetch(url);
+
+if (!response.ok) {
+throw new Error("Unable to calculate the driving route.");
+}
+
+const data = await response.json();
+
+if (data.code !== "Ok" || !data.routes?.length) {
+throw new Error("No driving route was found.");
+}
+
+const route = data.routes[0];
+
+return {
+result: data,
+geometry: route.geometry,
+distanceKm: route.distance ? route.distance / 1000 : null,
+duration: route.duration
+? formatDuration(route.duration)
+: null,
+durationSeconds: route.duration ?? null,
+};
+}
+
+/**
+
+* Convert seconds into a readable duration.
+  */
+  function formatDuration(seconds) {
+  const totalMinutes = Math.round(seconds / 60);
+
+if (totalMinutes < 60) {
+return `${totalMinutes} min`;
+}
+
+const hours = Math.floor(totalMinutes / 60);
+const minutes = totalMinutes % 60;
+
+return minutes
+? `${hours} hr ${minutes} min`
+: `${hours} hr`;
 }
