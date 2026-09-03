@@ -1,53 +1,36 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 
-import {
-  Link,
-  useNavigate,
-} from "react-router-dom";
-
-import {
-  useDispatch,
-  useSelector,
-} from "react-redux";
-
-import {
-  setCredentials,
-} from "../features/authSlice";
-
+import { setCredentials } from "../features/authSlice";
 import api from "../api";
-
 import { t } from "../i18n";
 
-export default function Auth({
-  mode,
-}) {
-  const isLogin =
-    mode === "login";
+export default function Auth({ mode = "login" }) {
+  const isLogin = mode === "login";
 
-  const dispatch =
-    useDispatch();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-  const navigate =
-    useNavigate();
-
-  const {
-    language,
-  } = useSelector(
-    (state) => state.preferences
+  const language = useSelector(
+    (state) => state.preferences?.language || "en"
   );
 
-  const [form, setForm] =
-    useState({
-      name: "",
-      email: "",
-      password: "",
-    });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const [loading, setLoading] =
-    useState(false);
+  function updateField(field, value) {
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -60,23 +43,28 @@ export default function Auth({
         ? "/auth/login"
         : "/auth/register";
 
-      const response =
-        await api.post(
-          endpoint,
-          form
-        );
+      const payload = isLogin
+        ? {
+            email: form.email,
+            password: form.password,
+          }
+        : {
+            name: form.name,
+            email: form.email,
+            password: form.password,
+          };
 
-      dispatch(
-        setCredentials(
-          response.data
-        )
-      );
+      const response = await api.post(endpoint, payload);
+
+      dispatch(setCredentials(response.data));
 
       navigate("/dashboard");
     } catch (err) {
       setError(
         err.response?.data?.error ||
-          "Something went wrong."
+          (isLogin
+            ? "Invalid email or password."
+            : "Unable to create your account.")
       );
     } finally {
       setLoading(false);
@@ -84,174 +72,309 @@ export default function Auth({
   }
 
   return (
-    <main className="auth-page">
-      <form
-        className="auth-card"
-        onSubmit={submit}
-      >
-        <div className="eyebrow">
-          {isLogin
-            ? t(
-                language,
-                "welcomeBack"
-              )
-            : t(
-                language,
-                "getStarted"
-              )}
-        </div>
+    <main className="auth-screen">
+      <section className="auth-layout">
 
-        <h1>
-          {isLogin
-            ? t(
-                language,
-                "signIn"
-              )
-            : t(
-                language,
-                "createAccount"
-              )}
-        </h1>
+        {/* ==================================================
+            LEFT SIDE — SENDIT BRAND
+            ================================================== */}
 
-        <p>
-          {isLogin
-            ? t(
-                language,
-                "signInDescription"
-              )
-            : t(
-                language,
-                "registerDescription"
-              )}
-        </p>
+        <div className="auth-brand-panel">
 
-        {!isLogin && (
-          <Field
-            label={t(
-              language,
-              "fullName"
-            )}
-            placeholder="Wilson Mbiuki"
-            value={form.name}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                name: e.target.value,
-              })
-            }
-          />
-        )}
+          <div className="auth-brand-content">
 
-        <Field
-          label={t(
-            language,
-            "email"
-          )}
-          type="email"
-          placeholder="you@example.com"
-          value={form.email}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              email: e.target.value,
-            })
-          }
-        />
+            <div className="auth-brand-logo">
+              <div className="auth-logo-mark">S</div>
 
-        <Field
-          label={t(
-            language,
-            "password"
-          )}
-          type="password"
-          placeholder="••••••••"
-          value={form.password}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              password: e.target.value,
-            })
-          }
-        />
+              <span>SendIT</span>
+            </div>
 
-        {error && (
-          <div className="error">
-            {error}
-          </div>
-        )}
+            <div className="auth-brand-copy">
 
-        <button
-          className="btn full"
-          disabled={loading}
-        >
-          {loading
-            ? t(
-                language,
-                "pleaseWait"
-              )
-            : isLogin
-            ? t(
-                language,
-                "signIn"
-              ).toUpperCase()
-            : t(
-                language,
-                "createAccountButton"
-              )}
-        </button>
+              <div className="auth-kicker">
+                GLOBAL COURIER SERVICE
+              </div>
 
-        <div className="auth-footer">
-          {isLogin
-            ? t(
-                language,
-                "dontHaveAccount"
-              )
-            : t(
-                language,
-                "alreadyHaveAccount"
-              )}{" "}
-
-          <Link
-            to={
-              isLogin
-                ? "/register"
-                : "/login"
-            }
-          >
-            {isLogin
-              ? t(
-                  language,
-                  "createOne"
-                )
-              : t(
-                  language,
-                  "signIn"
+              <h1>
+                {isLogin ? (
+                  <>
+                    Your parcels.
+                    <br />
+                    <span>Our responsibility.</span>
+                  </>
+                ) : (
+                  <>
+                    Deliver with
+                    <br />
+                    <span>confidence.</span>
+                  </>
                 )}
-          </Link>
+              </h1>
+
+              <p>
+                Fast, reliable parcel delivery with transparent
+                pricing, live tracking and worldwide destinations.
+              </p>
+
+            </div>
+
+            {/* Decorative delivery illustration */}
+            <div className="auth-visual">
+
+              <div className="auth-route-line">
+                <span className="route-dot route-start" />
+                <span className="route-dot route-end" />
+              </div>
+
+              <div className="auth-package">
+                <div className="package-top" />
+                <div className="package-front">
+                  <span>BOX</span>
+                </div>
+                <div className="package-side" />
+              </div>
+
+              <div className="auth-location auth-location-start">
+                <span className="location-pin">●</span>
+                <span>Nairobi</span>
+              </div>
+
+              <div className="auth-location auth-location-end">
+                <span className="location-pin">●</span>
+                <span>Worldwide</span>
+              </div>
+
+            </div>
+
+            <div className="auth-benefits">
+
+              <div className="auth-benefit">
+                <strong>01</strong>
+                <span>Reliable delivery</span>
+              </div>
+
+              <div className="auth-benefit">
+                <strong>02</strong>
+                <span>Live parcel tracking</span>
+              </div>
+
+              <div className="auth-benefit">
+                <strong>03</strong>
+                <span>Worldwide service</span>
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
-      </form>
+
+        {/* ==================================================
+            RIGHT SIDE — FORM
+            ================================================== */}
+
+        <div className="auth-form-panel">
+
+          <div className="auth-form-wrapper">
+
+            <div className="auth-mobile-logo">
+              <div className="auth-logo-mark">S</div>
+              <span>SendIT</span>
+            </div>
+
+            <div className="auth-form-header">
+
+              <div className="auth-eyebrow">
+                {isLogin
+                  ? "WELCOME BACK"
+                  : "GET STARTED"}
+              </div>
+
+              <h2>
+                {isLogin
+                  ? "Sign In"
+                  : "Create Account"}
+              </h2>
+
+              <p>
+                {isLogin
+                  ? "Sign in to manage your deliveries and track your parcels."
+                  : "Create your SendIT account and start sending parcels today."}
+              </p>
+
+            </div>
+
+            <form
+              className="auth-form"
+              onSubmit={submit}
+            >
+
+              {!isLogin && (
+                <div className="auth-field">
+
+                  <label htmlFor="name">
+                    {t(language, "name")}
+                  </label>
+
+                  <div className="auth-input-wrap">
+                    <span className="auth-input-icon">
+                      👤
+                    </span>
+
+                    <input
+                      id="name"
+                      type="text"
+                      value={form.name}
+                      onChange={(e) =>
+                        updateField(
+                          "name",
+                          e.target.value
+                        )
+                      }
+                      placeholder="Enter your full name"
+                      autoComplete="name"
+                      required
+                    />
+                  </div>
+
+                </div>
+              )}
+
+              <div className="auth-field">
+
+                <label htmlFor="email">
+                  {t(language, "email")}
+                </label>
+
+                <div className="auth-input-wrap">
+                  <span className="auth-input-icon">
+                    @
+                  </span>
+
+                  <input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) =>
+                      updateField(
+                        "email",
+                        e.target.value
+                      )
+                    }
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+              </div>
+
+              <div className="auth-field">
+
+                <div className="auth-label-row">
+
+                  <label htmlFor="password">
+                    {t(language, "password")}
+                  </label>
+
+                  {isLogin && (
+                    <span className="auth-secure-label">
+                      SECURE
+                    </span>
+                  )}
+
+                </div>
+
+                <div className="auth-input-wrap">
+                  <span className="auth-input-icon">
+                    •••
+                  </span>
+
+                  <input
+                    id="password"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) =>
+                      updateField(
+                        "password",
+                        e.target.value
+                      )
+                    }
+                    placeholder="Enter your password"
+                    autoComplete={
+                      isLogin
+                        ? "current-password"
+                        : "new-password"
+                    }
+                    required
+                  />
+                </div>
+
+              </div>
+
+              {error && (
+                <div className="auth-error">
+                  <span>!</span>
+                  <p>{error}</p>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="auth-submit"
+                disabled={loading}
+              >
+                <span>
+                  {loading
+                    ? isLogin
+                      ? "SIGNING IN..."
+                      : "CREATING ACCOUNT..."
+                    : isLogin
+                    ? "SIGN IN"
+                    : "CREATE ACCOUNT"}
+                </span>
+
+                {!loading && (
+                  <span className="auth-arrow">
+                    →
+                  </span>
+                )}
+              </button>
+
+            </form>
+
+            <div className="auth-divider">
+              <span>OR</span>
+            </div>
+
+            <div className="auth-switch">
+
+              <span>
+                {isLogin
+                  ? "Don't have an account?"
+                  : "Already have an account?"}
+              </span>
+
+              <Link
+                to={isLogin ? "/register" : "/login"}
+              >
+                {isLogin
+                  ? "Create one"
+                  : "Sign in"}
+              </Link>
+
+            </div>
+
+            <div className="auth-footer-note">
+              By continuing, you agree to SendIT's
+              terms of service and privacy policy.
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
     </main>
-  );
-}
-
-function Field({
-  label,
-  type = "text",
-  placeholder,
-  value,
-  onChange,
-}) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-
-      <input
-        type={type}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        required
-      />
-    </label>
   );
 }
