@@ -3,7 +3,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./features/authSlice";
 import preferencesReducer from "./features/preferencesSlice";
 
-const store = configureStore({
+export const store = configureStore({
   reducer: {
     auth: authReducer,
     preferences: preferencesReducer,
