@@ -1,67 +1,169 @@
-import { Link, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Link, Routes, Route } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logout } from "./features/authSlice";
+
+import {
+  setLanguage,
+  setCurrency,
+} from "./features/preferencesSlice";
+
+import {
+  languages,
+  currencies,
+  t,
+} from "./i18n";
+
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import CreateOrder from "./pages/CreateOrder";
 import OrderDetail from "./pages/OrderDetail";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function Navbar() {
-  const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
-  const navigate = useNavigate();
+
+  const {
+    language = "en",
+    currency = "KES",
+  } = useSelector(
+    (state) =>
+      state.preferences || {
+        language: "en",
+        currency: "KES",
+      }
+  );
+
+  const user = useSelector(
+    (state) => state.auth?.user
+  );
 
   return (
-    <header className="navbar">
-      <Link to="/" className="brand">
-        <span className="brand-icon">▣</span>
-        <span>Send<span>IT</span></span>
+    <nav className="navbar">
+
+      <Link to="/" className="navbar-brand">
+        <span className="logo">S</span>
+        SendIT
       </Link>
 
-      <nav>
-        {!user ? (
-          <>
-            <Link to="/login">SIGN IN</Link>
-            <Link className="btn btn-small" to="/register">GET STARTED</Link>
-          </>
-        ) : (
-          <>
-            <Link to="/dashboard">MY ORDERS</Link>
-            <Link to="/orders/new">NEW ORDER</Link>
-            <button
-              className="nav-button"
-              onClick={() => {
-                dispatch(logout());
-                navigate("/");
-              }}
-            >
-              SIGN OUT
-            </button>
-          </>
-        )}
-      </nav>
-    </header>
-  );
-}
+      <div className="navbar-links">
 
-function Protected({ children }) {
-  const user = useSelector((state) => state.auth.user);
-  return user ? children : <Navigate to="/login" replace />;
+        <Link to="/">
+          {t(language, "home") || "Home"}
+        </Link>
+
+        {user && (
+          <Link to="/dashboard">
+            {t(language, "dashboard") || "Dashboard"}
+          </Link>
+        )}
+
+        {user && (
+          <Link to="/create-order">
+            {t(language, "sendParcel") || "Send Parcel"}
+          </Link>
+        )}
+
+        {user?.role === "admin" && (
+          <Link to="/admin">
+            {t(language, "admin") || "Admin"}
+          </Link>
+        )}
+
+      </div>
+
+      <div className="navbar-controls">
+
+        <select
+          className="navbar-select"
+          value={language}
+          onChange={(event) =>
+            dispatch(setLanguage(event.target.value))
+          }
+          aria-label="Language"
+        >
+          {Object.entries(languages).map(
+            ([code, name]) => (
+              <option
+                key={code}
+                value={code}
+              >
+                {name}
+              </option>
+            )
+          )}
+        </select>
+
+        <select
+          className="navbar-select"
+          value={currency}
+          onChange={(event) =>
+            dispatch(setCurrency(event.target.value))
+          }
+          aria-label="Currency"
+        >
+          {Object.entries(currencies).map(
+            ([code, name]) => (
+              <option
+                key={code}
+                value={code}
+              >
+                {code} — {name}
+              </option>
+            )
+          )}
+        </select>
+
+      </div>
+
+    </nav>
+  );
 }
 
 export default function App() {
   return (
-    <>
+    <div className="app">
+
       <Navbar />
+
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<Auth mode="login" />} />
-        <Route path="/register" element={<Auth mode="register" />} />
-        <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
-        <Route path="/orders/new" element={<Protected><CreateOrder /></Protected>} />
-        <Route path="/orders/:id" element={<Protected><OrderDetail /></Protected>} />
+
+        <Route
+          path="/"
+          element={<Landing />}
+        />
+
+        <Route
+          path="/login"
+          element={<Auth mode="login" />}
+        />
+
+        <Route
+          path="/register"
+          element={<Auth mode="register" />}
+        />
+
+        <Route
+          path="/dashboard"
+          element={<Dashboard />}
+        />
+
+        <Route
+          path="/create-order"
+          element={<CreateOrder />}
+        />
+
+        <Route
+          path="/orders/:id"
+          element={<OrderDetail />}
+        />
+
+        <Route
+          path="/admin"
+          element={<AdminDashboard />}
+        />
+
       </Routes>
-    </>
+
+    </div>
   );
 }
