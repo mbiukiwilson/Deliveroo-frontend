@@ -1,170 +1,99 @@
-let mapsPromise = null;
-
-export function loadGoogleMaps() {
-  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-  if (!key) {
-    return Promise.reject(
-      new Error(
-        "Google Maps API key is not configured. Add VITE_GOOGLE_MAPS_API_KEY to Vercel."
-      )
-    );
-  }
-
-  if (window.google?.maps) {
-    return Promise.resolve(window.google.maps);
-  }
-
-  if (mapsPromise) {
-    return mapsPromise;
-  }
-
-  mapsPromise = new Promise((resolve, reject) => {
-    const existing = document.getElementById(
-      "sendit-google-maps"
-    );
-
-    if (existing) {
-      existing.addEventListener(
-        "load",
-        () => {
-          if (window.google?.maps) {
-            resolve(window.google.maps);
-          } else {
-            reject(
-              new Error(
-                "Google Maps loaded but is unavailable."
-              )
-            );
-          }
-        },
-        { once: true }
-      );
-
-      existing.addEventListener(
-        "error",
-        () =>
-          reject(
-            new Error("Google Maps failed to load.")
-          ),
-        { once: true }
-      );
-
-      return;
-    }
-
-    const script = document.createElement("script");
-
-    script.id = "sendit-google-maps";
-
-    script.src =
-      "https://maps.googleapis.com/maps/api/js?" +
-      `key=${encodeURIComponent(key)}` +
-      "&libraries=geometry" +
-      "&loading=async";
-
-    script.async = true;
-    script.defer = true;
-
-    script.onload = () => {
-      if (window.google?.maps) {
-        resolve(window.google.maps);
-      } else {
-        reject(
-          new Error(
-            "Google Maps loaded but the Maps API is unavailable."
-          )
-        );
-      }
-    };
-
-    script.onerror = () => {
-      reject(
-        new Error(
-          "Google Maps failed to load. Check your API key and Google Cloud APIs."
-        )
-      );
-    };
-
-    document.head.appendChild(script);
-  });
-
-  return mapsPromise;
-}
+const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const OSRM_URL = "https://router.project-osrm.org/route/v1/driving";
 
 export async function geocodeAddress(address) {
-  if (!address) {
-    throw new Error("An address is required.");
+  if (!address || !address.trim()) {
+    throw new Error("Please enter a location.");
   }
 
-  const maps = await loadGoogleMaps();
+  const url = new URL(NOMINATIM_URL);
 
-  const geocoder = new maps.Geocoder();
+  url.searchParams.set("q", address.trim());
+  url.searchParams.set("format", "json");
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("addressdetails", "1");
 
-  const response = await geocoder.geocode({
-    address,
-  });
-
-  if (
-    !response.results ||
-    response.results.length === 0
-  ) {
-    throw new Error(
-      `Could not find location: ${address}`
-    );
-  }
-
-  const result = response.results[0];
-
-  const location = result.geometry.location;
-
-  return {
-    lat: location.lat(),
-    lng: location.lng(),
-    formatted: result.formatted_address,
-  };
-}
-
-export async function calculateRoute(
-  origin,
-  destination
-) {
-  const maps = await loadGoogleMaps();
-
-  const service = new maps.DirectionsService();
-
-  const result = await service.route({
-    origin,
-    destination,
-
-    travelMode: maps.TravelMode.DRIVING,
-
-    drivingOptions: {
-      departureTime: new Date(),
-      trafficModel: "bestguess",
+  const response = await fetch(url.toString(), {
+    headers: {
+      Accept: "application/json",
     },
   });
 
-  const route = result.routes?.[0];
-
-  const leg = route?.legs?.[0];
-
-  if (!route || !leg) {
-    throw new Error(
-      "No driving route was found."
-    );
+  if (!response.ok) {
+    throw new Error("Unable to find that location.");
   }
 
-  return {
-    result,
+  const results = await response.json();
 
-    distanceKm: leg.distance?.value
-      ? leg.distance.value / 1000
+  if (!results.length) {
+    throw new Error(`Could not find location: ${address}`);
+  }
+
+  const result = results[0];
+
+  return {
+    lat: Number(result.lat),
+    lng: Number(result.lon),
+    formatted: result.display_name,
+  };
+}
+
+
+export async function calculateRoute(origin, destination) {
+  if (!origin || !destination) {
+    throw new Error("Origin and destination are required.");
+  }
+
+  const coordinates = [
+    `${origin.lng},${origin.lat}`,
+    `${destination.lng},${destination.lat}`,
+  ].join(";");
+
+  const url =
+    `${OSRM_URL}/${coordinates}` +
+    "?overview=full&geometries=geojson";
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Unable to calculate route.");
+  }
+
+  const data = await response.json();
+
+  if (data.code !== "Ok" || !data.routes?.length) {
+    throw new Error("No driving route was found.");
+  }
+
+  const route = data.routes[0];
+
+  return {
+    distanceKm: route.distance
+      ? route.distance / 1000
       : null,
 
-    duration:
-      leg.duration_in_traffic?.text ||
-      leg.duration?.text ||
-      null,
+    duration: route.duration
+      ? formatDuration(route.duration)
+      : null,
+
+    geometry: route.geometry,
   };
+}
+
+
+function formatDuration(seconds) {
+  const totalMinutes = Math.round(seconds / 60);
+
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (minutes === 0) {
+    return `${hours} hr`;
+  }
+
+  return `${hours} hr ${minutes} min`;
 }

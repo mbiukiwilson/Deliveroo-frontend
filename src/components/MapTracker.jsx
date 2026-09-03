@@ -1,13 +1,34 @@
+import { useEffect, useState } from "react";
 import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  useMap,
+} from "react-leaflet";
 
-import {
-  calculateRoute,
-  loadGoogleMaps,
-} from "../maps";
+import L from "leaflet";
+
+import "leaflet/dist/leaflet.css";
+
+import { calculateRoute } from "../maps";
+
+
+// Fix Leaflet marker icons when using Vite
+delete L.Icon.Default.prototype._getIconUrl;
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+
+  iconUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+
+  shadowUrl:
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+});
+
 
 export default function MapTracker({
   pickup,
@@ -16,142 +37,204 @@ export default function MapTracker({
   onRoute,
   live = false,
 }) {
-  const mapRef = useRef(null);
-  const map = useRef(null);
-  const markers = useRef([]);
-  const renderer = useRef(null);
-
+  const [route, setRoute] = useState(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const routeStart = current || pickup;
 
   useEffect(() => {
     let cancelled = false;
 
-    async function draw() {
-      if (
-        !mapRef.current ||
-        !pickup ||
-        !destination
-      ) {
+    async function loadRoute() {
+      if (!routeStart || !destination) {
+        setLoading(false);
         return;
       }
 
       try {
+        setLoading(true);
         setError("");
 
-        const maps = await loadGoogleMaps();
-
-        if (cancelled) return;
-
-        const center = current || pickup;
-
-        if (!map.current) {
-          map.current = new maps.Map(
-            mapRef.current,
-            {
-              center,
-              zoom: 7,
-
-              mapTypeControl: false,
-              streetViewControl: false,
-              fullscreenControl: true,
-            }
-          );
-        }
-
-        markers.current.forEach(
-          (marker) => marker.setMap(null)
-        );
-
-        markers.current = [];
-
-        const places = [
-          {
-            position: pickup,
-            label: "P",
-            title: "Pickup",
-          },
-          {
-            position: destination,
-            label: "D",
-            title: "Destination",
-          },
-        ];
-
-        if (current) {
-          places.push({
-            position: current,
-            label: "●",
-            title: "Current parcel location",
-          });
-        }
-
-        places.forEach((item) => {
-          const marker =
-            new maps.Marker({
-              map: map.current,
-              position: item.position,
-              label: item.label,
-              title: item.title,
-            });
-
-          markers.current.push(marker);
-        });
-
-        const route = await calculateRoute(
-          current || pickup,
+        const result = await calculateRoute(
+          routeStart,
           destination
         );
 
         if (cancelled) return;
 
-        if (!renderer.current) {
-          renderer.current =
-            new maps.DirectionsRenderer({
-              map: map.current,
-              suppressMarkers: true,
-              preserveViewport: false,
-            });
-        }
-
-        renderer.current.setDirections(
-          route.result
-        );
+        setRoute(result);
 
         onRoute?.({
-          distanceKm: route.distanceKm,
-          duration: route.duration,
+          distanceKm: result.distanceKm,
+          duration: result.duration,
         });
-
-        const bounds =
-          new maps.LatLngBounds();
-
-        [
-          pickup,
-          destination,
-          current,
-        ]
-          .filter(Boolean)
-          .forEach((point) => {
-            bounds.extend(point);
-          });
-
-        map.current.fitBounds(bounds, 60);
       } catch (err) {
         if (!cancelled) {
           setError(
-            err.message ||
-              "Map unavailable."
+            err.message || "Unable to load route."
           );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
     }
 
-    draw();
+    loadRoute();
 
     return () => {
       cancelled = true;
     };
   }, [
+    routeStart?.lat,
+    routeStart?.lng,
+    destination?.lat,
+    destination?.lng,
+  ]);
+
+
+  if (!pickup || !destination) {
+    return (
+      <div className="map-placeholder">
+        <div className="map-label">
+          Location information is not available.
+        </div>
+      </div>
+    );
+  }
+
+
+  const center = current || pickup;
+
+
+  return (
+    <div className="live-map-wrap">
+
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={7}
+        scrollWheelZoom={true}
+        className="live-map"
+      >
+
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+
+        <Marker
+          position={[pickup.lat, pickup.lng]}
+        >
+          <Popup>
+            <strong>Pickup</strong>
+          </Popup>
+        </Marker>
+
+
+        <Marker
+          position={[
+            destination.lat,
+            destination.lng,
+          ]}
+        >
+          <Popup>
+            <strong>Destination</strong>
+          </Popup>
+        </Marker>
+
+
+        {current && (
+          <Marker
+            position={[
+              current.lat,
+              current.lng,
+            ]}
+          >
+            <Popup>
+              <strong>Current Parcel Location</strong>
+            </Popup>
+          </Marker>
+        )}
+
+
+        {route?.geometry?.coordinates && (
+          <Polyline
+            positions={route.geometry.coordinates.map(
+              ([lng, lat]) => [lat, lng]
+            )}
+            pathOptions={{
+              weight: 5,
+            }}
+          />
+        )}
+
+
+        <MapBounds
+          pickup={pickup}
+          destination={destination}
+          current={current}
+        />
+
+      </MapContainer>
+
+
+      {loading && (
+        <div className="map-status">
+          Calculating route...
+        </div>
+      )}
+
+
+      {error && (
+        <div className="map-error">
+          {error}
+        </div>
+      )}
+
+
+      {live && !error && (
+        <div className="live-badge">
+          ● LIVE GPS
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+
+function MapBounds({
+  pickup,
+  destination,
+  current,
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const points = [
+      pickup,
+      destination,
+      current,
+    ].filter(Boolean);
+
+    if (!points.length) return;
+
+    const bounds = L.latLngBounds(
+      points.map((point) => [
+        point.lat,
+        point.lng,
+      ])
+    );
+
+    map.fitBounds(bounds, {
+      padding: [40, 40],
+    });
+
+  }, [
+    map,
     pickup?.lat,
     pickup?.lng,
     destination?.lat,
@@ -160,25 +243,5 @@ export default function MapTracker({
     current?.lng,
   ]);
 
-  return (
-    <div className="live-map-wrap">
-      <div
-        ref={mapRef}
-        className="live-map"
-        aria-label="Parcel route map"
-      />
-
-      {error && (
-        <div className="map-error">
-          {error}
-        </div>
-      )}
-
-      {live && !error && (
-        <div className="live-badge">
-          ● LIVE GPS
-        </div>
-      )}
-    </div>
-  );
+  return null;
 }
