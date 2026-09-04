@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import api from "../api";
+import { calculateRoute, geocodeAddress } from "../maps";
+import { formatMoney, t } from "../i18n";
 
 function calculatePrice(weight) {
   if (!weight || weight <= 0) return 0;
@@ -12,162 +15,129 @@ function calculatePrice(weight) {
 
 export default function CreateOrder() {
   const navigate = useNavigate();
-
+  const { language, currency } = useSelector((state) => state.preferences);
   const [form, setForm] = useState({
     pickup_location: "",
     destination: "",
     weight: "",
     description: "",
   });
-
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const price = useMemo(() => calculatePrice(Number(form.weight)), [form.weight]);
 
-  const price = useMemo(
-    () => calculatePrice(Number(form.weight)),
-    [form.weight]
-  );
-
-  function updateField(field, value) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+  function update(name, value) {
+    setForm((current) => ({ ...current, [name]: value }));
   }
 
   async function submit(event) {
     event.preventDefault();
     setError("");
-    setLoading(true);
+    setBusy(true);
 
     try {
+      const pickup = await geocodeAddress(form.pickup_location);
+      const destination = await geocodeAddress(form.destination);
+      const route = await calculateRoute(pickup, destination);
+
       const response = await api.post("/parcels", {
-        pickup_location: form.pickup_location,
-        destination: form.destination,
+        ...form,
         weight: Number(form.weight),
-        description: form.description,
+        currency,
+        pickup_lat: pickup.lat,
+        pickup_lng: pickup.lng,
+        destination_lat: destination.lat,
+        destination_lng: destination.lng,
+        distance: route.distanceKm,
+        duration: route.duration,
       });
 
       navigate(`/orders/${response.data.id}`);
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-          "Unable to create order. Please try again."
-      );
+      setError(err.response?.data?.error || err.message || "Unable to create order.");
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <main className="page-shell">
+    <main className="page container">
       <div className="create-order-page">
         <div className="eyebrow">NEW DELIVERY</div>
+        <h1>{t(language, "createOrder")}</h1>
+        <p className="page-subtitle">
+          Enter your pickup and destination details to get a delivery quote.
+        </p>
 
-        <div className="create-order-card">
-          <h1>Create a Parcel Order</h1>
+        <form className="order-card" onSubmit={submit}>
+          <div className="order-form-grid">
+            <Field
+              label={t(language, "pickup")}
+              placeholder="e.g. CBD, Nairobi"
+              value={form.pickup_location}
+              onChange={(e) => update("pickup_location", e.target.value)}
+            />
+            <Field
+              label={t(language, "destination")}
+              placeholder="e.g. Westlands, Nairobi"
+              value={form.destination}
+              onChange={(e) => update("destination", e.target.value)}
+            />
+            <Field
+              label={`${t(language, "weight")} (KG)`}
+              type="number"
+              min="0.1"
+              step="0.1"
+              placeholder="3.5"
+              value={form.weight}
+              onChange={(e) => update("weight", e.target.value)}
+            />
+            <label className="field">
+              <span>{t(language, "description")}</span>
+              <textarea
+                rows="4"
+                value={form.description}
+                onChange={(e) => update("description", e.target.value)}
+                placeholder="Describe your parcel..."
+                required
+              />
+            </label>
+          </div>
 
-          <p>
-            Enter your pickup and destination details to create a new
-            delivery.
+          <div className="price-preview">
+            <div>
+              <span>{t(language, "estimatedPrice")}</span>
+              <small>Calculated from parcel weight</small>
+            </div>
+            <strong>{formatMoney(price, currency)}</strong>
+          </div>
+
+          <p className="payment-note">
+            Payment is required before an admin can mark this parcel as in transit.
           </p>
 
-          <form className="order-form" onSubmit={submit}>
-            <div className="form-group">
-              <label htmlFor="pickup_location">
-                PICKUP LOCATION
-              </label>
+          {error && <div className="error">{error}</div>}
 
-              <input
-                id="pickup_location"
-                type="text"
-                placeholder="e.g. 15 Ring Road, Nairobi"
-                value={form.pickup_location}
-                onChange={(e) =>
-                  updateField("pickup_location", e.target.value)
-                }
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="destination">
-                DESTINATION ADDRESS
-              </label>
-
-              <input
-                id="destination"
-                type="text"
-                placeholder="e.g. 24 Oxford Street, Nairobi"
-                value={form.destination}
-                onChange={(e) =>
-                  updateField("destination", e.target.value)
-                }
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="weight">WEIGHT (KG)</label>
-
-              <input
-                id="weight"
-                type="number"
-                min="0.1"
-                step="0.1"
-                placeholder="e.g. 3.5"
-                value={form.weight}
-                onChange={(e) =>
-                  updateField("weight", e.target.value)
-                }
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="description">DESCRIPTION</label>
-
-              <textarea
-                id="description"
-                rows="5"
-                placeholder="Describe your parcel..."
-                value={form.description}
-                onChange={(e) =>
-                  updateField("description", e.target.value)
-                }
-              />
-            </div>
-
-            <div className="price-preview full-width">
-              <div>
-                <span>ESTIMATED PRICE</span>
-                <small>Based on parcel weight</small>
-              </div>
-
-              <strong>KSh {price.toFixed(2)}</strong>
-            </div>
-
-            {error && (
-              <div className="alert alert-error full-width">
-                <span>⚠</span>
-                <p>{error}</p>
-              </div>
-            )}
-
-            <div className="full-width">
-              <button
-                type="submit"
-                className="btn btn-primary btn-full"
-                disabled={loading}
-              >
-                {loading
-                  ? "CREATING ORDER..."
-                  : "CONFIRM & PLACE ORDER"}
-              </button>
-            </div>
-          </form>
-        </div>
+          <button className="btn full" disabled={busy}>
+            {busy ? "CALCULATING ROUTE..." : t(language, "confirmOrder")}
+          </button>
+        </form>
       </div>
     </main>
+  );
+}
+
+function Field({ label, type = "text", placeholder, value, onChange }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        required
+      />
+    </label>
   );
 }

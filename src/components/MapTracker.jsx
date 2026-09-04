@@ -1,34 +1,53 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  CircleMarker,
   MapContainer,
-  TileLayer,
   Marker,
-  Popup,
   Polyline,
+  Popup,
+  TileLayer,
   useMap,
 } from "react-leaflet";
-
 import L from "leaflet";
-
-import "leaflet/dist/leaflet.css";
-
 import { calculateRoute } from "../maps";
 
-
-// Fix Leaflet marker icons when using Vite
-delete L.Icon.Default.prototype._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+const pickupIcon = L.divIcon({
+  className: "sendit-map-icon",
+  html: '<span class="sendit-pin sendit-pin-pickup">P</span>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
 });
 
+const destinationIcon = L.divIcon({
+  className: "sendit-map-icon",
+  html: '<span class="sendit-pin sendit-pin-destination">D</span>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+});
+
+const currentIcon = L.divIcon({
+  className: "sendit-map-icon",
+  html: '<span class="sendit-pin sendit-pin-current">●</span>',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+});
+
+function FitBounds({ points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const valid = points.filter(Boolean).map((point) => [point.lat, point.lng]);
+    if (valid.length === 1) {
+      map.setView(valid[0], 13);
+      return;
+    }
+    if (valid.length > 1) {
+      map.fitBounds(valid, { padding: [40, 40] });
+    }
+  }, [map, points]);
+
+  return null;
+}
 
 export default function MapTracker({
   pickup,
@@ -39,202 +58,40 @@ export default function MapTracker({
 }) {
   const [route, setRoute] = useState(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  const routeStart = current || pickup;
+  const center = current || pickup || destination || { lat: 0, lng: 0 };
+
+  const routeLine = useMemo(() => {
+    if (!route?.geometry?.coordinates) return [];
+    return route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+  }, [route]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadRoute() {
-      if (!routeStart || !destination) {
-        setLoading(false);
-        return;
-      }
+      if (!pickup || !destination) return;
 
       try {
-        setLoading(true);
         setError("");
-
-        const result = await calculateRoute(
-          routeStart,
-          destination
-        );
-
+        const result = await calculateRoute(current || pickup, destination);
         if (cancelled) return;
 
         setRoute(result);
-
         onRoute?.({
           distanceKm: result.distanceKm,
           duration: result.duration,
         });
       } catch (err) {
-        if (!cancelled) {
-          setError(
-            err.message || "Unable to load route."
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setError(err.message || "Unable to calculate route.");
       }
     }
 
     loadRoute();
-
     return () => {
       cancelled = true;
     };
   }, [
-    routeStart?.lat,
-    routeStart?.lng,
-    destination?.lat,
-    destination?.lng,
-  ]);
-
-
-  if (!pickup || !destination) {
-    return (
-      <div className="map-placeholder">
-        <div className="map-label">
-          Location information is not available.
-        </div>
-      </div>
-    );
-  }
-
-
-  const center = current || pickup;
-
-
-  return (
-    <div className="live-map-wrap">
-
-      <MapContainer
-        center={[center.lat, center.lng]}
-        zoom={7}
-        scrollWheelZoom={true}
-        className="live-map"
-      >
-
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-
-        <Marker
-          position={[pickup.lat, pickup.lng]}
-        >
-          <Popup>
-            <strong>Pickup</strong>
-          </Popup>
-        </Marker>
-
-
-        <Marker
-          position={[
-            destination.lat,
-            destination.lng,
-          ]}
-        >
-          <Popup>
-            <strong>Destination</strong>
-          </Popup>
-        </Marker>
-
-
-        {current && (
-          <Marker
-            position={[
-              current.lat,
-              current.lng,
-            ]}
-          >
-            <Popup>
-              <strong>Current Parcel Location</strong>
-            </Popup>
-          </Marker>
-        )}
-
-
-        {route?.geometry?.coordinates && (
-          <Polyline
-            positions={route.geometry.coordinates.map(
-              ([lng, lat]) => [lat, lng]
-            )}
-            pathOptions={{
-              weight: 5,
-            }}
-          />
-        )}
-
-
-        <MapBounds
-          pickup={pickup}
-          destination={destination}
-          current={current}
-        />
-
-      </MapContainer>
-
-
-      {loading && (
-        <div className="map-status">
-          Calculating route...
-        </div>
-      )}
-
-
-      {error && (
-        <div className="map-error">
-          {error}
-        </div>
-      )}
-
-
-      {live && !error && (
-        <div className="live-badge">
-          ● LIVE GPS
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-
-function MapBounds({
-  pickup,
-  destination,
-  current,
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    const points = [
-      pickup,
-      destination,
-      current,
-    ].filter(Boolean);
-
-    if (!points.length) return;
-
-    const bounds = L.latLngBounds(
-      points.map((point) => [
-        point.lat,
-        point.lng,
-      ])
-    );
-
-    map.fitBounds(bounds, {
-      padding: [40, 40],
-    });
-
-  }, [
-    map,
     pickup?.lat,
     pickup?.lng,
     destination?.lat,
@@ -243,5 +100,59 @@ function MapBounds({
     current?.lng,
   ]);
 
-  return null;
+  return (
+    <div className="live-map-wrap">
+      <MapContainer
+        center={[center.lat, center.lng]}
+        zoom={7}
+        scrollWheelZoom
+        className="live-map"
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {pickup && (
+          <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon}>
+            <Popup>Pickup location</Popup>
+          </Marker>
+        )}
+
+        {destination && (
+          <Marker
+            position={[destination.lat, destination.lng]}
+            icon={destinationIcon}
+          >
+            <Popup>Destination</Popup>
+          </Marker>
+        )}
+
+        {current && (
+          <>
+            <Marker position={[current.lat, current.lng]} icon={currentIcon}>
+              <Popup>Current parcel location</Popup>
+            </Marker>
+            <CircleMarker
+              center={[current.lat, current.lng]}
+              radius={12}
+              pathOptions={{ color: "#f75c1e", fillOpacity: 0.08 }}
+            />
+          </>
+        )}
+
+        {routeLine.length > 1 && (
+          <Polyline
+            positions={routeLine}
+            pathOptions={{ color: "#f75c1e", weight: 5, opacity: 0.9 }}
+          />
+        )}
+
+        <FitBounds points={[pickup, destination, current]} />
+      </MapContainer>
+
+      {live && !error && <div className="live-badge">● LIVE GPS</div>}
+      {error && <div className="map-error">{error}</div>}
+    </div>
+  );
 }
